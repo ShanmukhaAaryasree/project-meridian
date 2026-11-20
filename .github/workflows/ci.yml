@@ -1,0 +1,23 @@
+name: Meridian CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  producer-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the producer image
+        run: docker build -f meridian-producer.Dockerfile -t meridian-producer:ci .
+      - name: Check the container user and replay dataset
+        run: |
+          docker run --rm --entrypoint /bin/sh meridian-producer:ci -ec '
+            test "$(id -u)" -ne 0
+            test "$(grep -c . /opt/kafka/meridian-events.txt)" -eq 43
+          '
