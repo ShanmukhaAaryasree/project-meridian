@@ -1,4 +1,4 @@
-# Data Ingestion
+# Historical Batch and Kafka Ingestion
 
 | Path | Implementation |
 | --- | --- |
