@@ -75,6 +75,8 @@ To use ADLS Gen2, provision an authorized Entra service principal and put its te
 
 Delta Lake fits the Databricks quality layers because the notebook can use native Spark writes and transaction history to trace curation and update shipments by key. Iceberg fits the published KPI and tracking outputs because analytics engines that support the Iceberg catalog can read the same snapshots and evolved schema. Publishing in both formats gives a portable analytics copy and requires extra storage, writes, and a parity check. The notebook compares all four published Iceberg KPI tables with their Delta sources.
 
+The `Logistics` folder contains the original capstone brief and earlier companion copies of the Scala consumer and Kafka export. Build the current consumer from `meridian-stream.scala` at the repository root.
+
 ## Validate locally
 
 Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1` with Docker Desktop running. This builds and checks the producer image and verifies the saved batch and recovery results. This check does not require a Git remote. The Kubernetes batch and streaming logs must be present in the project root.
