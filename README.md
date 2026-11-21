@@ -1,6 +1,8 @@
 # Project Meridian
 
-Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. This demo uses the supplied mini training dataset.
+Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. The capstone brief describes 8,768 shipment records. The supplied mini training pack contains 141 shipment rows, including eight re-sent versions. All reported results validate behavior on that mini pack. Full-dataset and production-volume validation remain outside the demonstrated scope.
+
+See the [requirements and evidence matrix](docs/requirements-compliance.md) and the [final presentation walkthrough](demo-guide.md).
 
 ## Architecture
 
@@ -55,11 +57,15 @@ Apply `kubectl --context docker-desktop apply -f meridian-kafka.yaml` to create 
 4. For recovery, save the consumer logs, replace the Spark pod, and wait for the deployment to become ready. Compare its output with the first run. The same checkpoint should yield zero new input records, 43 persisted records, and identical windows.
 5. For the Databricks audit, consume 43 values from `shipment-tracking-events` in order, save them as `meridian-kafka-events.jsonl`, and upload the file to the notebook's input volume.
 
+The initial local replay and its replacement both retained 43 raw Kafka records. The replacement processed zero new records and reproduced the same 12 windows. The separate ADLS run started with the same 43-event fixture plus one deliberately late event. It recovered 44 raw records after pod replacement, then processed one additional accepted event. The final 45 raw records comprise 33 accepted, 7 duplicate, 4 rejected, and 1 late. See the [reproduction steps](demo-guide.md#reproduce-the-adls-event-counts) and [ADLS verification log](meridian-adls-recovery-verification.log).
+
 ## Run the continuous consumer
 
 With the Kubernetes Kafka broker and PVC running, use `powershell -NoProfile -ExecutionPolicy Bypass -File .\start-meridian-live.ps1`. This creates a separate `shipment-tracking-live` topic and deploys a Spark consumer that checks for events every ten seconds. It uses a separate checkpoint and Iceberg warehouse so the finite replay remains reproducible. Publish keyed events to the live topic to see new micro-batches in `kubectl --context docker-desktop logs -f deployment/meridian-stream-live`.
 
 To use ADLS Gen2, provision an authorized Entra service principal and put its tenant ID, app client ID, and client secret in the `meridian-adls-auth` Kubernetes Secret as `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`. Use `meridian-adls-probe.yaml` to verify a Spark pod can write and read the project storage folder. Then pass `-Adls` to `start-meridian-live.ps1`. That mode uses its own Kafka topic and writes its checkpoint, Iceberg tables, and Delta event audit under the ADLS `meridian/streaming` prefix. Use `-RunId <suffix>` to start an independent run with a separate deployment, topic, checkpoint and warehouse. Keep the topic and storage paths consistent across pod replacements.
+
+The streaming Deployment uses `Recreate` so Kubernetes terminates the old pod before starting its replacement during a Deployment update. One Spark writer owns the checkpoint and warehouse at a time, including when using ADLS. The update creates a short processing pause, then the replacement resumes from the durable checkpoint. The stateless producer uses a rolling update. Its update and rollback are in the [Kubernetes rollout log](evidence/kubernetes-producer-rollout.log).
 
 ## Assumptions and limits
 
@@ -80,3 +86,7 @@ The `Logistics` folder contains the original capstone brief and earlier companio
 ## Validate locally
 
 Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1` with Docker Desktop running. This builds and checks the producer image and verifies the saved batch and recovery results. This check does not require a Git remote. The Kubernetes batch and streaming logs must be present in the project root.
+
+## Hosted CI
+
+Both `producer-image` and `processing-images` passed on `main` for commit `e19fc0b587a39b40d70c2a1622e412a9b283145e`. The workflow builds the images and checks the packaged batch reconciliation. [Successful Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44892608445)
