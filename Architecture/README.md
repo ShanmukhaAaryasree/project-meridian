@@ -1,4 +1,4 @@
-# Meridian Architecture
+# Batch and Streaming Architecture
 
 ## Batch flow
 
