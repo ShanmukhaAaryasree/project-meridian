@@ -8,7 +8,7 @@
 4. **Iceberg.** Show the four analytics tables and the added delay category column. In Spark SQL with the streaming `meridian` catalog configured, run `SELECT committed_at, snapshot_id, operation FROM meridian.tracking.event_windows.snapshots ORDER BY committed_at`. Use an earlier snapshot ID in `SELECT * FROM meridian.tracking.event_windows VERSION AS OF <snapshot_id>` and compare the rows with the current table.
 5. **Recovery.** Show the [43-record local replay and restart](meridian-stream-after-restart.log), then the [separate ADLS run](meridian-adls-recovery-verification.log). ADLS recovered 44 raw records and 12 windows after pod replacement, then reached 45 records after one new accepted event.
 6. **Operations.** Show the producer's separate demo topic and its [rolling update and rollback](evidence/kubernetes-producer-rollout.log). Each producer replica replays the full fixture. The streaming Deployment uses `Recreate` during updates to avoid overlapping Spark writers against the same checkpoint and warehouse. Processing pauses during replacement and resumes from the checkpoint.
-7. **Verification.** Show the [requirements and evidence matrix](docs/requirements-compliance.md). Both hosted CI jobs passed for commit `4bde2de022ac5cc9d035a3ac883208041a50b177` on `main`. [Successful Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44894193975)
+7. **Verification.** Show the [requirements and evidence matrix](docs/requirements-compliance.md). Both hosted CI jobs passed for commit `1b7d12c0a56be37034cfbc24c6f123d5f7fbb217` on `main`. [Successful Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44895379150)
 
 Measure Kafka lag with `./measure-meridian-kafka-lag.ps1`. It compares each broker partition's end offset with the latest committed Spark checkpoint offset. Pass `-Deployment` and `-Topic` when checking another run. The [ADLS acceptance run](evidence/meridian-kafka-lag.csv) measured zero lag at offset 45.
 
@@ -42,7 +42,7 @@ kubectl --context docker-desktop wait --for=condition=Ready pod -l "app=$deploym
 kubectl --context docker-desktop logs -f "deployment/$deployment" --tail=40
 ```
 
-The startup line should show 44 saved records, 12 windows, 32 window events, and four checkpoint commits. Press Ctrl+C, then send a second synthetic event with a fresh ID and the first fixture event's original on-time timestamps.
+The startup line should show 44 saved records, 12 windows, and 32 window events. The recorded acceptance run had four checkpoint commits. The commit count can vary if Spark starts an empty batch before the fixture arrives. Press Ctrl+C, then send a second synthetic event with a fresh ID and the first fixture event's original on-time timestamps.
 
 ```powershell
 $onTime = ($fixture[0] -split '\|', 2)[1] | ConvertFrom-Json
