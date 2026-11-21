@@ -10,7 +10,7 @@ Small subset of the full dataset. Quality problems are kept on purpose.
                                      orphan customer/carrier ids, DD-MM-YYYY dates, mixed status spellings,
                                      same origin/destination hub)
   data_dictionary.csv      field rules
-Every shipment_id in tracking events exists in shipments.csv.
+The tracking fixture includes one event with a missing shipment ID. All nonempty shipment IDs in the fixture match a row in `shipments.csv`.
 
 ## streaming/  (Kafka -> Spark Structured Streaming -> Iceberg, on Kubernetes)
   tracking_events.jsonl            43 events, arrival (ingest_time) order, 06:00-07:00 UTC 19-Nov-2026

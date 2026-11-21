@@ -1,6 +1,10 @@
 # Project Meridian Requirements Compliance
 
-The [capstone brief](../Logistics/PROJECT_MERIDIAN_Capstone_Logistics_Intelligence_Real-Time_Tracking.docx) describes 8,768 shipment records. Verification used the [supplied mini training pack](../Logistics/Data/README.md) of 141 shipment rows and 43 tracking records. The ADLS acceptance run added two synthetic events. The evidence covers functional behavior on the mini pack. Performance and correctness at full-dataset scale require a separate run.
+The [capstone brief](../Logistics/PROJECT_MERIDIAN_Capstone_Logistics_Intelligence_Real-Time_Tracking.docx) describes 8,768 shipment records. Verification used the [trainer-supplied mini pack](../Logistics/Data/README.md) of 141 shipment rows and 43 tracking records. The ADLS acceptance run added two synthetic events. The evidence covers functional behavior on the mini pack. Performance and correctness at full-dataset scale require a separate run.
+
+## Verification scope
+
+The matrix references archived results from separate executions. GitHub Actions rebuilds the workload images and runs the packaged batch check. Azure Databricks, Kubernetes operations, and ADLS recovery are verified separately. The [fresh local demonstration attempt](../evidence/meridian-final-demo-attempt.log) reached 141 input rows and 133 latest versions before Docker Desktop stopped responding. The batch job timed out before the ADLS replay stage. See the earlier [successful ADLS recovery log](../meridian-adls-recovery-verification.log) for that test's results.
 
 ## Execution environments
 

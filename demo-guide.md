@@ -1,6 +1,6 @@
 # Project Meridian Final Presentation and Demo Guide
 
-**Opening note.** The capstone brief describes 8,768 shipment records. This presentation uses the supplied training pack of 141 shipment rows and a 43-event tracking fixture. The results demonstrate the pipeline on that sample. Throughput and correctness at full-dataset scale still need a separate run.
+**Opening note.** The capstone brief describes 8,768 shipment records. This presentation uses the trainer-supplied pack of 141 shipment rows and a 43-event tracking fixture. The results demonstrate the pipeline on that sample. Throughput and correctness at full-dataset scale still need a separate run. See the [verification scope](docs/requirements-compliance.md#verification-scope) for what ran and what remains to be rerun.
 
 1. **Architecture.** Open the README diagram. Explain how Databricks processes the CSVs and how Kubernetes runs the Kafka replay and Spark consumer.
 2. **Batch quality.** Show the raw counts, the latest shipment version check, and the curated and rejected Delta outputs. Reconcile 141 input rows to 133 latest versions, then to 122 curated and 11 rejected shipments. Open `meridian-batch-kubernetes.log` for the Kubernetes Job counts and the [Delta verification log](evidence/meridian-delta-upsert-verification.log) for the update of a re-sent shipment.

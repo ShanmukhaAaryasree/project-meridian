@@ -1,6 +1,6 @@
 # Project Meridian
 
-Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. The capstone brief describes 8,768 shipment records. The supplied mini training pack contains 141 shipment rows, including eight re-sent versions. All reported results validate behavior on that mini pack. Full-dataset and production-volume validation remain outside the demonstrated scope.
+Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. The capstone brief describes 8,768 shipment records. The trainer supplied a mini pack with 141 shipment rows, including eight re-sent versions. The reported results cover that mini pack. Full-dataset and production-volume validation require a separate run.
 
 See the [requirements and evidence matrix](docs/requirements-compliance.md) and the [final presentation walkthrough](demo-guide.md).
 
@@ -24,7 +24,7 @@ flowchart LR
 
 1. Open a Scala notebook on Azure Databricks classic compute. For the managed Iceberg steps, use Databricks Runtime 16.4 LTS or above and an output schema with predictive optimization enabled.
 2. Upload the four CSVs under `Logistics/Data/batch/raw` to the same Unity Catalog volume folder. Import `01_Shipments_Batch.scala` as a source notebook. Set the **Input volume** and **Output catalog and schema** widgets for your workspace.
-3. Run the batch, KPI and Iceberg cells in order. Use a dedicated writable schema for verification because the notebook replaces the Meridian output tables. Run the tracking audit cells after uploading `meridian-kafka-events.jsonl` alongside the CSVs.
+3. Run the batch, KPI and Iceberg cells in order. Use a dedicated writable schema for verification. The notebook merges existing curated shipments and refreshes the other Meridian outputs. Run the tracking audit cells after uploading `meridian-kafka-events.jsonl` alongside the CSVs.
 
 The batch starts with 141 shipment rows and retains 133 latest shipment versions before the quality split. The four KPI outputs cover monthly delivery performance, carrier SLA, lane performance, and delay reasons.
 
@@ -85,7 +85,7 @@ The `Logistics` folder contains the original capstone brief and earlier companio
 
 ## Validate locally
 
-Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1` with Docker Desktop running. This builds and checks the producer image and verifies the saved batch and recovery results. This check does not require a Git remote. The Kubernetes batch and streaming logs must be present in the project root.
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1` with Docker Desktop running. It rebuilds and checks the producer image, then reads the archived batch and recovery logs. For a fresh execution, run the batch and streaming walkthroughs above. See the [verification scope](docs/requirements-compliance.md#verification-scope) for the distinction between archived results and the latest rerun attempt.
 
 ## Hosted CI
 
