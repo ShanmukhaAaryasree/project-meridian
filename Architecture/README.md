@@ -40,4 +40,4 @@ flowchart TB
   Shipment --> View["meridian_shipment_analytics"]
 ```
 
-The Databricks notebook builds a star-style analytics view from the curated shipment table and four reference roles. The two hub aliases use the same source reference. [Batch notebook](../Data-Ingestion/Batch/01_Shipments_Batch.scala) · [KPI catalogue](../Analytics/README.md)
+The Databricks notebook builds a star-style analytics view from the curated shipment table and four reference roles. The two hub aliases use the same source reference. [Batch notebook](../Data%20Ingestion/Batch/01_Shipments_Batch.scala) · [KPI catalogue](../Dashboard/README.md)

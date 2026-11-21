@@ -24,8 +24,8 @@ Start with the [architecture](#architecture), [demo guide](docs/demo-guide.md), 
 | --- | --- |
 | [Architecture](Architecture/README.md) | Batch and streaming diagrams, deployment boundaries, and shipment model |
 | [Datasets](Datasets/README.md) | Trainer-supplied CSVs, data dictionary, and tracking fixtures |
-| [Data ingestion](Data-Ingestion/README.md) | Historical notebook, Kafka producer, and streaming consumer |
-| [Analytics](Analytics/README.md) | Bronze, Silver, and Gold tables, business queries, and findings |
+| [Data Ingestion](Data%20Ingestion/README.md) | Historical notebook, Kafka producer, and streaming consumer |
+| [Dashboard](Dashboard/README.md) | Bronze, Silver, and Gold tables, business queries, and findings |
 | [Development](Development/README.md) | Workload images, Kubernetes manifests, and run commands |
 | [Logging and monitoring](Logging/README.md) | Batch, replay, ADLS recovery, and Kafka lag evidence |
 | [Testing](Testing/README.md) | Data quality, format parity, schema evolution, rollout, and hosted CI |
@@ -59,7 +59,7 @@ See the [shipment model and deployment boundaries](Architecture/README.md) for t
 | Hubs | 25 |
 | Tracking fixture | 43 |
 
-The [data dictionary](Datasets/batch/data_dictionary.csv) describes the source fields. The ADLS acceptance test added two synthetic events to the 43-event fixture.
+The [data dictionary](Datasets/data_dictionary.csv) describes the source fields. The ADLS acceptance test added two synthetic events to the 43-event fixture.
 
 ## Medallion architecture and analytics
 
@@ -69,7 +69,7 @@ The [data dictionary](Datasets/batch/data_dictionary.csv) describes the source f
 | Silver | Curated and rejected shipment Delta tables with traceable validation rules |
 | Gold | Monthly delivery, carrier SLA, lane performance, and delay-reason KPIs in Delta and Iceberg |
 
-The shipment-grain analytics view joins customer, carrier, origin hub, and destination hub references. See the [star-style model](Architecture/README.md#shipment-analytics-model) and [KPI catalogue](Analytics/README.md#gold-kpi-tables).
+The shipment-grain analytics view joins customer, carrier, origin hub, and destination hub references. See the [star-style model](Architecture/README.md#shipment-analytics-model) and [KPI catalogue](Dashboard/README.md#gold-kpi-tables).
 
 ## Run the project
 
@@ -78,12 +78,12 @@ Run the Docker and PowerShell commands from the repository root.
 ## Run the batch notebook
 
 1. Open a Scala notebook on Azure Databricks classic compute. For the managed Iceberg steps, use Databricks Runtime 16.4 LTS or above and an output schema with predictive optimization enabled.
-2. Upload the four CSVs under `Datasets/batch/raw` to the same Unity Catalog volume folder. Import `Data-Ingestion/Batch/01_Shipments_Batch.scala` as a source notebook. Set the **Input volume** and **Output catalog and schema** widgets for your workspace.
+2. Upload the four CSVs under `Datasets/raw` to the same Unity Catalog volume folder. Import `Data Ingestion/Batch/01_Shipments_Batch.scala` as a source notebook. Set the **Input volume** and **Output catalog and schema** widgets for your workspace.
 3. Run the batch, KPI and Iceberg cells in order. Use a dedicated writable schema for verification. The notebook merges existing curated shipments and refreshes the other Meridian outputs. Run the tracking audit cells after uploading the [Kafka export](Datasets/streaming/meridian-kafka-events.jsonl) alongside the CSVs.
 
 The batch starts with 141 shipment rows and retains 133 latest shipment versions before the quality split. The four KPI outputs cover monthly delivery performance, carrier SLA, lane performance, and delay reasons.
 
-Run `Analytics/meridian-business-queries.sql` in Databricks SQL for shipment counts by status and monthly freight revenue by customer segment.
+Run `Dashboard/meridian-business-queries.sql` in Databricks SQL for shipment counts by status and monthly freight revenue by customer segment.
 
 ## Run the portable batch job
 

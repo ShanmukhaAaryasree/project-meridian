@@ -2,7 +2,7 @@
 
 Small subset of the full dataset. Quality problems are kept on purpose.
 
-## batch/raw/  (ADLS Gen2 -> Databricks)
+## Raw batch data  (ADLS Gen2 -> Databricks)
   hubs/hubs.csv            25 rows  (1 duplicate hub, 1 bad latitude, 1 inactive hub)
   carriers/carriers.csv    13 rows  (1 duplicate carrier, 1 inactive)
   customers/customers.csv  78 rows  (duplicate customer ids)
