@@ -6,7 +6,7 @@
 
 Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. The capstone brief describes 8,768 shipment records. The trainer supplied a mini pack with 141 shipment rows, including eight re-sent versions. The reported results cover that mini pack. Full-dataset and production-volume validation require a separate run.
 
-Start with the [architecture](#architecture), [presentation](Presentation/README.md), or [requirements and evidence matrix](docs/requirements-compliance.md).
+Start with the [architecture](#architecture), [demo guide](docs/demo-guide.md), or [requirements and evidence matrix](docs/requirements-compliance.md).
 
 ## Technology stack
 
@@ -29,7 +29,7 @@ Start with the [architecture](#architecture), [presentation](Presentation/README
 | [Development](Development/README.md) | Workload images, Kubernetes manifests, and run commands |
 | [Logging and monitoring](Logging/README.md) | Batch, replay, ADLS recovery, and Kafka lag evidence |
 | [Testing](Testing/README.md) | Data quality, format parity, schema evolution, rollout, and hosted CI |
-| [Presentation](Presentation/README.md) | Downloadable speaking script, walkthrough, and evidence map |
+| [Demo documentation](docs/demo-guide.md) | Walkthrough, run commands, and evidence |
 
 ## Architecture
 
@@ -112,7 +112,7 @@ Apply `kubectl --context docker-desktop apply -f Development/Kubernetes/meridian
 4. For recovery, save the consumer logs, replace the Spark pod, and wait for the deployment to become ready. Compare its output with the first run. The same checkpoint should yield zero new input records, 43 persisted records, and identical windows.
 5. For the Databricks audit, consume 43 values from `shipment-tracking-events` in order, save them as `meridian-kafka-events.jsonl`, and upload the file to the notebook's input volume.
 
-The initial local replay and its replacement both retained 43 raw Kafka records. The replacement processed zero new records and reproduced the same 12 windows. The separate ADLS run started with the same 43-event fixture plus one deliberately late event. It recovered 44 raw records after pod replacement, then processed one additional accepted event. The final 45 raw records comprise 33 accepted, 7 duplicate, 4 rejected, and 1 late. See the [reproduction steps](Presentation/demo-guide.md#reproduce-the-adls-event-counts) and [ADLS verification log](Logging/meridian-adls-recovery-verification.log).
+The initial local replay and its replacement both retained 43 raw Kafka records. The replacement processed zero new records and reproduced the same 12 windows. The separate ADLS run started with the same 43-event fixture plus one deliberately late event. It recovered 44 raw records after pod replacement, then processed one additional accepted event. The final 45 raw records comprise 33 accepted, 7 duplicate, 4 rejected, and 1 late. See the [reproduction steps](docs/demo-guide.md#reproduce-the-adls-event-counts) and [ADLS verification log](Logging/meridian-adls-recovery-verification.log).
 
 ## Run the continuous consumer
 

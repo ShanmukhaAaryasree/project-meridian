@@ -9,4 +9,4 @@
 | [Producer rollout](../Testing/evidence/kubernetes-producer-rollout.log) | Deployment update, rollback, and readiness |
 | [Fresh rerun attempt](../Testing/evidence/meridian-final-demo-attempt.log) | Local Docker Desktop timeout before the ADLS stage |
 
-The [lag utility](../Development/Scripts/measure-meridian-kafka-lag.ps1) compares committed Spark offsets with broker end offsets. See the [demo guide](../Presentation/demo-guide.md#inspect-a-failed-deployment) for inspecting Kubernetes logs and events.
+The [lag utility](../Development/Scripts/measure-meridian-kafka-lag.ps1) compares committed Spark offsets with broker end offsets. See the [demo guide](../docs/demo-guide.md#inspect-a-failed-deployment) for inspecting Kubernetes logs and events.
