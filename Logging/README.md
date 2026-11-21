@@ -10,3 +10,5 @@
 | [Fresh rerun attempt](../Testing/evidence/meridian-final-demo-attempt.log) | Local Docker Desktop timeout before the ADLS stage |
 
 The [lag utility](../Development/Scripts/measure-meridian-kafka-lag.ps1) compares committed Spark offsets with broker end offsets. See the [demo guide](../docs/demo-guide.md#inspect-a-failed-deployment) for inspecting Kubernetes logs and events.
+
+For evaluation, start with shipment reconciliation, then show the replacement pod's startup state and the final Kafka lag. The 43-event PVC replay and the 45-event ADLS audit come from separate runs.
