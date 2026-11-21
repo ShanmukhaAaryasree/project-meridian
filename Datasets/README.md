@@ -1,6 +1,6 @@
-# PROJECT MERIDIAN - Mini Training Data Pack
+# Meridian Source Datasets
 
-Small subset of the full dataset. Quality problems are kept on purpose.
+The trainer-supplied mini pack includes historical CSVs and a keyed tracking fixture. The files retain the data-quality cases used to test validation and deduplication.
 
 ## Raw batch data  (ADLS Gen2 -> Databricks)
   hubs/hubs.csv            25 rows  (1 duplicate hub, 1 bad latitude, 1 inactive hub)
