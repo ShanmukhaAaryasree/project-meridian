@@ -10,3 +10,5 @@
 | Hosted CI | [Workflow source](../.github/workflows/ci.yml) and [latest runs on main](https://github.com/ShanmukhaAaryasree/project-meridian/actions/workflows/ci.yml?query=branch%3Amain) |
 
 The [local validation script](validate-project.ps1) checks the producer image and archived batch and streaming results. See the [requirements matrix](../docs/requirements-compliance.md#verification-scope) for the verification scope and limitations.
+
+The [latest workflow runs](https://github.com/ShanmukhaAaryasree/project-meridian/actions/workflows/ci.yml?query=branch%3Amain) show separate producer-image and processing-image jobs. The processing job includes the packaged batch reconciliation.
