@@ -1,4 +1,4 @@
-# Project Meridian Requirements Compliance
+# Project Meridian Requirements and Evidence
 
 The [capstone brief](PROJECT_MERIDIAN_Capstone_Logistics_Intelligence_Real-Time_Tracking.docx) describes 8,768 shipment records. Verification used the [trainer-supplied mini pack](../Datasets/README.md) of 141 shipment rows and 43 tracking records. The ADLS acceptance run added two synthetic events. The evidence covers functional behavior on the mini pack. Performance and correctness at full-dataset scale require a separate run.
 
