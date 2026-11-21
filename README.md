@@ -18,7 +18,7 @@ Start with the [architecture](#architecture), [demo guide](docs/demo-guide.md), 
 | Deployment | Docker, Kubernetes Jobs and Deployments, ConfigMaps and Secrets |
 | Analytics and verification | Databricks SQL, Spark SQL, GitHub Actions |
 
-## Repository guide
+## Repository contents
 
 | Section | What to open |
 | --- | --- |
