@@ -1,4 +1,4 @@
-# Development and Deployment
+# Docker and Kubernetes Setup
 
 | Workload | Source | Image | Kubernetes |
 | --- | --- | --- | --- |
