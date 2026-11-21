@@ -89,4 +89,4 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1`
 
 ## Hosted CI
 
-Both `producer-image` and `processing-images` passed on `main` for commit `e19fc0b587a39b40d70c2a1622e412a9b283145e`. The workflow builds the images and checks the packaged batch reconciliation. [Successful Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44892608445)
+Both `producer-image` and `processing-images` passed on `main` for commit `4bde2de022ac5cc9d035a3ac883208041a50b177`. The workflow builds the images and checks the packaged batch reconciliation. [Successful Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44894193975)
