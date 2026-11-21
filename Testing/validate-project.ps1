@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath $PSScriptRoot
+Set-Location -LiteralPath (Join-Path $PSScriptRoot '..')
 
-docker build -f meridian-producer.Dockerfile -t meridian-producer:ci .
+docker build -f Development/Docker/meridian-producer.Dockerfile -t meridian-producer:ci .
 if ($LASTEXITCODE -ne 0) { throw 'Producer image build failed.' }
 
 $containerUser = docker run --rm --entrypoint id meridian-producer:ci -u
@@ -14,14 +14,14 @@ if ($LASTEXITCODE -ne 0 -or [int]$eventCount -ne 43) {
 }
 Write-Output 'PASS: producer image builds, runs as non-root, and contains 43 replay events.'
 
-$batch = Get-Content -LiteralPath meridian-batch-kubernetes.log -Raw
+$batch = Get-Content -LiteralPath Logging/meridian-batch-kubernetes.log -Raw
 if ($batch -notmatch 'Batch verified: raw=141 latest=133 curated=122 rejected=11') {
     throw 'Batch Job evidence does not show the expected reconciliation.'
 }
 Write-Output 'PASS: saved Kubernetes batch log reconciles 141 raw, 133 latest, 122 curated, and 11 rejected.'
 
-$before = @(Get-Content -LiteralPath meridian-stream-before-restart.log)
-$after = @(Get-Content -LiteralPath meridian-stream-after-restart.log)
+$before = @(Get-Content -LiteralPath Logging/meridian-stream-before-restart.log)
+$after = @(Get-Content -LiteralPath Logging/meridian-stream-after-restart.log)
 if (($before -join "`n") -notmatch 'New Kafka records processed = 43' -or
     ($after -join "`n") -notmatch 'New Kafka records processed = 0' -or
     ($after -join "`n") -notmatch 'Saved Kafka records = 43') {

@@ -23,7 +23,7 @@ Start with the [architecture](#architecture), [presentation](Presentation/README
 | Section | What to open |
 | --- | --- |
 | [Architecture](Architecture/README.md) | Batch and streaming diagrams, deployment boundaries, and shipment model |
-| [Datasets](Logistics/Data/README.md) | Trainer-supplied CSVs, data dictionary, and tracking fixtures |
+| [Datasets](Datasets/README.md) | Trainer-supplied CSVs, data dictionary, and tracking fixtures |
 | [Data ingestion](Data-Ingestion/README.md) | Historical notebook, Kafka producer, and streaming consumer |
 | [Analytics](Analytics/README.md) | Bronze, Silver, and Gold tables, business queries, and findings |
 | [Development](Development/README.md) | Workload images, Kubernetes manifests, and run commands |
@@ -59,7 +59,7 @@ See the [shipment model and deployment boundaries](Architecture/README.md) for t
 | Hubs | 25 |
 | Tracking fixture | 43 |
 
-The [data dictionary](Logistics/Data/batch/data_dictionary.csv) describes the source fields. The ADLS acceptance test added two synthetic events to the 43-event fixture.
+The [data dictionary](Datasets/batch/data_dictionary.csv) describes the source fields. The ADLS acceptance test added two synthetic events to the 43-event fixture.
 
 ## Medallion architecture and analytics
 
@@ -73,52 +73,54 @@ The shipment-grain analytics view joins customer, carrier, origin hub, and desti
 
 ## Run the project
 
+Run the Docker and PowerShell commands from the repository root.
+
 ## Run the batch notebook
 
 1. Open a Scala notebook on Azure Databricks classic compute. For the managed Iceberg steps, use Databricks Runtime 16.4 LTS or above and an output schema with predictive optimization enabled.
-2. Upload the four CSVs under `Logistics/Data/batch/raw` to the same Unity Catalog volume folder. Import `01_Shipments_Batch.scala` as a source notebook. Set the **Input volume** and **Output catalog and schema** widgets for your workspace.
-3. Run the batch, KPI and Iceberg cells in order. Use a dedicated writable schema for verification. The notebook merges existing curated shipments and refreshes the other Meridian outputs. Run the tracking audit cells after uploading `meridian-kafka-events.jsonl` alongside the CSVs.
+2. Upload the four CSVs under `Datasets/batch/raw` to the same Unity Catalog volume folder. Import `Data-Ingestion/Batch/01_Shipments_Batch.scala` as a source notebook. Set the **Input volume** and **Output catalog and schema** widgets for your workspace.
+3. Run the batch, KPI and Iceberg cells in order. Use a dedicated writable schema for verification. The notebook merges existing curated shipments and refreshes the other Meridian outputs. Run the tracking audit cells after uploading the [Kafka export](Datasets/streaming/meridian-kafka-events.jsonl) alongside the CSVs.
 
 The batch starts with 141 shipment rows and retains 133 latest shipment versions before the quality split. The four KPI outputs cover monthly delivery performance, carrier SLA, lane performance, and delay reasons.
 
-Run `meridian-business-queries.sql` in Databricks SQL for shipment counts by status and monthly freight revenue by customer segment.
+Run `Analytics/meridian-business-queries.sql` in Databricks SQL for shipment counts by status and monthly freight revenue by customer segment.
 
 ## Run the portable batch job
 
-Build `docker build -f meridian-batch.Dockerfile -t meridian-batch:v1 .` and run `docker run --rm meridian-batch:v1` for a local smoke test. To run it on Kubernetes, make the image available to the node and apply `meridian-batch-job.yaml`. Use `kubectl --context docker-desktop logs job/meridian-batch` for the completion counts. The packaged job writes four raw Delta datasets and the curated and rejected shipment datasets under `/tmp/meridian-batch` inside the container. Its default output is temporary, while the Databricks tables retain the published outputs.
+Build `docker build -f Development/Docker/meridian-batch.Dockerfile -t meridian-batch:v1 .` and run `docker run --rm meridian-batch:v1` for a local smoke test. To run it on Kubernetes, make the image available to the node and apply `Development/Kubernetes/meridian-batch-job.yaml`. Use `kubectl --context docker-desktop logs job/meridian-batch` for the completion counts. The packaged job writes four raw Delta datasets and the curated and rejected shipment datasets under `/tmp/meridian-batch` inside the container. Its default output is temporary, while the Databricks tables retain the published outputs.
 
 ## Run the Kubernetes replay
 
 Prerequisites are Docker Desktop with Kubernetes enabled, `kubectl`, a Kafka Service named `meridian-kafka`, and a writable `ReadWriteOnce` PVC named `meridian-stream-state`. The demo used the `docker-desktop` context and the default namespace.
 
-Apply `kubectl --context docker-desktop apply -f meridian-kafka.yaml` to create the demo broker, Service, and streaming PVC. The broker is disposable and the PVC stores the consumer state.
+Apply `kubectl --context docker-desktop apply -f Development/Kubernetes/meridian-kafka.yaml` to create the demo broker, Service, and streaming PVC. The broker is disposable and the PVC stores the consumer state.
 
 1. Use a single Kafka partition for `shipment-tracking-events`. Replay the supplied keyed text file with Kafka's console producer and `key.separator=|`. Confirm the topic end offset is 43 before starting Spark.
 2. Build the versioned Spark image and make it available to the Kubernetes node. Create the consumer ConfigMap and apply the deployment from the repository root.
 
    ```powershell
-   docker build -f meridian-stream.Dockerfile -t meridian-stream:v1 .
+   docker build -f Development/Docker/meridian-stream.Dockerfile -t meridian-stream:v1 .
    kubectl --context docker-desktop create configmap meridian-stream `
      --from-literal=KAFKA_BOOTSTRAP_SERVERS=meridian-kafka:9092 `
      --from-literal=KAFKA_TOPIC=shipment-tracking-events
-   kubectl --context docker-desktop apply -f meridian-stream-deployment.yaml
+   kubectl --context docker-desktop apply -f Development/Kubernetes/meridian-stream-deployment.yaml
    kubectl --context docker-desktop rollout status deployment/meridian-stream --timeout=300s
    kubectl --context docker-desktop logs deployment/meridian-stream
    ```
 
-3. For the producer deployment, build `docker build -f meridian-producer.Dockerfile -t meridian-producer:v1 .`. Make the image available to the Kubernetes node, create the single-partition topic `shipment-tracking-producer-demo`, and apply `meridian-producer-deployment.yaml`. The separate topic lets the producer scaling demo run independently of the consumer recovery test. Each new producer replica publishes a full 43-event replay.
+3. For the producer deployment, build `docker build -f Development/Docker/meridian-producer.Dockerfile -t meridian-producer:v1 .`. Make the image available to the Kubernetes node, create the single-partition topic `shipment-tracking-producer-demo`, and apply `Development/Kubernetes/meridian-producer-deployment.yaml`. The separate topic lets the producer scaling demo run independently of the consumer recovery test. Each new producer replica publishes a full 43-event replay.
 4. For recovery, save the consumer logs, replace the Spark pod, and wait for the deployment to become ready. Compare its output with the first run. The same checkpoint should yield zero new input records, 43 persisted records, and identical windows.
 5. For the Databricks audit, consume 43 values from `shipment-tracking-events` in order, save them as `meridian-kafka-events.jsonl`, and upload the file to the notebook's input volume.
 
-The initial local replay and its replacement both retained 43 raw Kafka records. The replacement processed zero new records and reproduced the same 12 windows. The separate ADLS run started with the same 43-event fixture plus one deliberately late event. It recovered 44 raw records after pod replacement, then processed one additional accepted event. The final 45 raw records comprise 33 accepted, 7 duplicate, 4 rejected, and 1 late. See the [reproduction steps](demo-guide.md#reproduce-the-adls-event-counts) and [ADLS verification log](meridian-adls-recovery-verification.log).
+The initial local replay and its replacement both retained 43 raw Kafka records. The replacement processed zero new records and reproduced the same 12 windows. The separate ADLS run started with the same 43-event fixture plus one deliberately late event. It recovered 44 raw records after pod replacement, then processed one additional accepted event. The final 45 raw records comprise 33 accepted, 7 duplicate, 4 rejected, and 1 late. See the [reproduction steps](Presentation/demo-guide.md#reproduce-the-adls-event-counts) and [ADLS verification log](Logging/meridian-adls-recovery-verification.log).
 
 ## Run the continuous consumer
 
-With the Kubernetes Kafka broker and PVC running, use `powershell -NoProfile -ExecutionPolicy Bypass -File .\start-meridian-live.ps1`. This creates a separate `shipment-tracking-live` topic and deploys a Spark consumer that checks for events every ten seconds. It uses a separate checkpoint and Iceberg warehouse so the finite replay remains reproducible. Publish keyed events to the live topic to see new micro-batches in `kubectl --context docker-desktop logs -f deployment/meridian-stream-live`.
+With the Kubernetes Kafka broker and PVC running, use `powershell -NoProfile -ExecutionPolicy Bypass -File .\Development/Scripts/start-meridian-live.ps1`. This creates a separate `shipment-tracking-live` topic and deploys a Spark consumer that checks for events every ten seconds. It uses a separate checkpoint and Iceberg warehouse so the finite replay remains reproducible. Publish keyed events to the live topic to see new micro-batches in `kubectl --context docker-desktop logs -f deployment/meridian-stream-live`.
 
-To use ADLS Gen2, provision an authorized Entra service principal and put its tenant ID, app client ID, and client secret in the `meridian-adls-auth` Kubernetes Secret as `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`. Use `meridian-adls-probe.yaml` to verify a Spark pod can write and read the project storage folder. Then pass `-Adls` to `start-meridian-live.ps1`. That mode uses its own Kafka topic and writes its checkpoint, Iceberg tables, and Delta event audit under the ADLS `meridian/streaming` prefix. Use `-RunId <suffix>` to start an independent run with a separate deployment, topic, checkpoint and warehouse. Keep the topic and storage paths consistent across pod replacements.
+To use ADLS Gen2, provision an authorized Entra service principal and put its tenant ID, app client ID, and client secret in the `meridian-adls-auth` Kubernetes Secret as `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`. Use `Development/Kubernetes/meridian-adls-probe.yaml` to verify a Spark pod can write and read the project storage folder. Then pass `-Adls` to `Development/Scripts/start-meridian-live.ps1`. That mode uses its own Kafka topic and writes its checkpoint, Iceberg tables, and Delta event audit under the ADLS `meridian/streaming` prefix. Use `-RunId <suffix>` to start an independent run with a separate deployment, topic, checkpoint and warehouse. Keep the topic and storage paths consistent across pod replacements.
 
-The streaming Deployment uses `Recreate` so Kubernetes terminates the old pod before starting its replacement during a Deployment update. One Spark writer owns the checkpoint and warehouse at a time, including when using ADLS. The update creates a short processing pause, then the replacement resumes from the durable checkpoint. The stateless producer uses a rolling update. Its update and rollback are in the [Kubernetes rollout log](evidence/kubernetes-producer-rollout.log).
+The streaming Deployment uses `Recreate` so Kubernetes terminates the old pod before starting its replacement during a Deployment update. One Spark writer owns the checkpoint and warehouse at a time, including when using ADLS. The update creates a short processing pause, then the replacement resumes from the durable checkpoint. The stateless producer uses a rolling update. Its update and rollback are in the [Kubernetes rollout log](Testing/evidence/kubernetes-producer-rollout.log).
 
 ## Assumptions and limits
 
@@ -134,11 +136,11 @@ The streaming Deployment uses `Recreate` so Kubernetes terminates the old pod be
 
 Delta Lake fits the Databricks quality layers because the notebook can use native Spark writes and transaction history to trace curation and update shipments by key. Iceberg fits the published KPI and tracking outputs because analytics engines that support the Iceberg catalog can read the same snapshots and evolved schema. Publishing in both formats gives a portable analytics copy and requires extra storage, writes, and a parity check. The notebook compares all four published Iceberg KPI tables with their Delta sources.
 
-The `Logistics` folder contains the original capstone brief and earlier companion copies of the Scala consumer and Kafka export. Build the current consumer from `meridian-stream.scala` at the repository root.
+The [original capstone brief](docs/PROJECT_MERIDIAN_Capstone_Logistics_Intelligence_Real-Time_Tracking.docx) is in `docs/`.
 
 ## Validate locally
 
-Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1` with Docker Desktop running. It rebuilds and checks the producer image, then reads the archived batch and recovery logs. For a fresh execution, run the batch and streaming walkthroughs above. See the [verification scope](docs/requirements-compliance.md#verification-scope) for the distinction between archived results and the latest rerun attempt.
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Testing/validate-project.ps1` with Docker Desktop running. It rebuilds and checks the producer image, then reads the archived batch and recovery logs. For a fresh execution, run the batch and streaming walkthroughs above. See the [verification scope](docs/requirements-compliance.md#verification-scope) for the distinction between archived results and the latest rerun attempt.
 
 ## Hosted CI
 
@@ -146,6 +148,6 @@ Both `producer-image` and `processing-images` passed on `main` for the archived 
 
 ## Recorded outcomes
 
-- Batch reconciled **141 raw → 133 latest → 122 curated + 11 rejected**. The Delta merge test updated one curated row. [Batch log](meridian-batch-kubernetes.log) · [Merge evidence](evidence/meridian-delta-upsert-verification.log)
-- Four Gold KPI tables matched across Delta and Iceberg. Adding `delay_category` preserved **14 rows**. [KPI comparison](evidence/databricks-kpi-comparison.csv) · [Schema screenshot](evidence/databricks-schema-evolution-row-counts.png)
-- The ADLS-backed replacement recovered **44 records and 12 windows**, then processed one more event. [Recovery log](meridian-adls-recovery-verification.log) · [Kafka lag](evidence/meridian-kafka-lag.csv)
+- Batch reconciled **141 raw → 133 latest → 122 curated + 11 rejected**. The Delta merge test updated one curated row. [Batch log](Logging/meridian-batch-kubernetes.log) · [Merge evidence](Testing/evidence/meridian-delta-upsert-verification.log)
+- Four Gold KPI tables matched across Delta and Iceberg. Adding `delay_category` preserved **14 rows**. [KPI comparison](Testing/evidence/databricks-kpi-comparison.csv) · [Schema screenshot](Testing/evidence/databricks-schema-evolution-row-counts.png)
+- The ADLS-backed replacement recovered **44 records and 12 windows**, then processed one more event. [Recovery log](Logging/meridian-adls-recovery-verification.log) · [Kafka lag](Testing/evidence/meridian-kafka-lag.csv)

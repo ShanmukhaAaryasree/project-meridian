@@ -4,7 +4,7 @@ Start with the [15-minute presentation script](Project-Meridian-Presentation-Scr
 
 1. Open the [architecture diagram](../README.md#architecture).
 2. Explain the input scope, medallion layers, and four [KPI outputs](../Analytics/README.md).
-3. Show [ADLS recovery](../meridian-adls-recovery-verification.log), [Iceberg schema evolution](../evidence/databricks-schema-evolution-row-counts.png), and the [producer rollback](../evidence/kubernetes-producer-rollout.log).
-4. Close with the [business insights](../project-insights.md), hosted CI, and [requirements evidence](../docs/requirements-compliance.md).
+3. Show [ADLS recovery](../Logging/meridian-adls-recovery-verification.log), [Iceberg schema evolution](../Testing/evidence/databricks-schema-evolution-row-counts.png), and the [producer rollback](../Testing/evidence/kubernetes-producer-rollout.log).
+4. Close with the [business insights](../Analytics/project-insights.md), hosted CI, and [requirements evidence](../docs/requirements-compliance.md).
 
-Use the [live demo walkthrough](../demo-guide.md) for commands and the [original brief](../Logistics/PROJECT_MERIDIAN_Capstone_Logistics_Intelligence_Real-Time_Tracking.docx) for evaluation scope.
+Use the [live demo walkthrough](demo-guide.md) for commands and the [original brief](../docs/PROJECT_MERIDIAN_Capstone_Logistics_Intelligence_Real-Time_Tracking.docx) for evaluation scope.

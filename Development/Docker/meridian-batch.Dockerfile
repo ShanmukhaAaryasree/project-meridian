@@ -1,6 +1,6 @@
 FROM apache/spark:3.5.3-java17-scala AS batch-input
-COPY meridian-batch.scala /app/meridian-batch.scala
-COPY Logistics/Data/batch/raw /app/data
+COPY Data-Ingestion/Batch/meridian-batch.scala /app/meridian-batch.scala
+COPY Datasets/batch/raw /app/data
 
 FROM apache/spark:3.5.3-java17-scala
 COPY --from=batch-input /app /app

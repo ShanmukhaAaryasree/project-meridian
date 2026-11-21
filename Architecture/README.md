@@ -26,7 +26,7 @@ flowchart LR
   Spark --> Checkpoint["Spark checkpoint"]
 ```
 
-The local replay uses a persistent volume. The ADLS acceptance run stores its checkpoint, Iceberg warehouse, and Delta audit in ADLS Gen2 while Kafka and Spark compute remain on local Kubernetes. See the [replay and recovery record](../meridian-adls-recovery-verification.log).
+The local replay uses a persistent volume. The ADLS acceptance run stores its checkpoint, Iceberg warehouse, and Delta audit in ADLS Gen2 while Kafka and Spark compute remain on local Kubernetes. See the [replay and recovery record](../Logging/meridian-adls-recovery-verification.log).
 
 ## Shipment analytics model
 
@@ -40,4 +40,4 @@ flowchart TB
   Shipment --> View["meridian_shipment_analytics"]
 ```
 
-The Databricks notebook builds a star-style analytics view from the curated shipment table and four reference roles. The two hub aliases use the same source reference. [Batch notebook](../01_Shipments_Batch.scala) · [KPI catalogue](../Analytics/README.md)
+The Databricks notebook builds a star-style analytics view from the curated shipment table and four reference roles. The two hub aliases use the same source reference. [Batch notebook](../Data-Ingestion/Batch/01_Shipments_Batch.scala) · [KPI catalogue](../Analytics/README.md)

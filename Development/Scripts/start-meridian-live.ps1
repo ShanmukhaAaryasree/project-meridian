@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location -LiteralPath $PSScriptRoot
+$manifestPath = Join-Path $PSScriptRoot '../Kubernetes/meridian-stream-deployment.yaml'
 
 $name = 'meridian-stream-live'
 $topic = 'shipment-tracking-live'
@@ -44,7 +44,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not generate the live consumer ConfigMap
 $config | kubectl --context $Context apply -f -
 if ($LASTEXITCODE -ne 0) { throw 'Could not apply the live consumer ConfigMap.' }
 
-$deployment = (Get-Content -LiteralPath meridian-stream-deployment.yaml) -replace '^([ ]*(?:name|app): )meridian-stream$', ('$1' + $name)
+$deployment = (Get-Content -LiteralPath $manifestPath) -replace '^([ ]*(?:name|app): )meridian-stream$', ('$1' + $name)
 if ($Adls) {
     $deployment = $deployment | ForEach-Object {
         $_

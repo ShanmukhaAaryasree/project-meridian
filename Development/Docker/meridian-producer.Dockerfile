@@ -1,5 +1,5 @@
 FROM apache/kafka:4.4.0 AS replay-data
-COPY Logistics/Data/streaming/tracking_events_kafka_keyed.txt /tmp/meridian-events.txt
+COPY Datasets/streaming/tracking_events_kafka_keyed.txt /tmp/meridian-events.txt
 
 FROM apache/kafka:4.4.0
 COPY --from=replay-data /tmp/meridian-events.txt /opt/kafka/meridian-events.txt
