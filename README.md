@@ -1,8 +1,35 @@
 # Project Meridian
 
+**Unified logistics intelligence and real-time shipment tracking**
+
+## Project overview
+
 Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. The capstone brief describes 8,768 shipment records. The trainer supplied a mini pack with 141 shipment rows, including eight re-sent versions. The reported results cover that mini pack. Full-dataset and production-volume validation require a separate run.
 
-See the [requirements and evidence matrix](docs/requirements-compliance.md) and the [final presentation walkthrough](demo-guide.md).
+Start with the [architecture](#architecture), [presentation](Presentation/README.md), or [requirements and evidence matrix](docs/requirements-compliance.md).
+
+## Technology stack
+
+| Area | Technology |
+| --- | --- |
+| Batch processing | Azure Databricks, Scala, Apache Spark, Unity Catalog |
+| Streaming | Apache Kafka and Spark Structured Streaming on local Kubernetes |
+| Storage and table formats | ADLS Gen2, local persistent volume, Delta Lake, Apache Iceberg |
+| Deployment | Docker, Kubernetes Jobs and Deployments, ConfigMaps and Secrets |
+| Analytics and verification | Databricks SQL, Spark SQL, GitHub Actions |
+
+## Repository guide
+
+| Section | What to open |
+| --- | --- |
+| [Architecture](Architecture/README.md) | Batch and streaming diagrams, deployment boundaries, and shipment model |
+| [Datasets](Logistics/Data/README.md) | Trainer-supplied CSVs, data dictionary, and tracking fixtures |
+| [Data ingestion](Data-Ingestion/README.md) | Historical notebook, Kafka producer, and streaming consumer |
+| [Analytics](Analytics/README.md) | Bronze, Silver, and Gold tables, business queries, and findings |
+| [Development](Development/README.md) | Workload images, Kubernetes manifests, and run commands |
+| [Logging and monitoring](Logging/README.md) | Batch, replay, ADLS recovery, and Kafka lag evidence |
+| [Testing](Testing/README.md) | Data quality, format parity, schema evolution, rollout, and hosted CI |
+| [Presentation](Presentation/README.md) | Downloadable speaking script, walkthrough, and evidence map |
 
 ## Architecture
 
@@ -19,6 +46,32 @@ flowchart LR
   K --> E["Kafka export"]
   E --> DB
 ```
+
+See the [shipment model and deployment boundaries](Architecture/README.md) for the relationships behind the KPI tables.
+
+## Dataset
+
+| Input | Data rows |
+| --- | ---: |
+| Shipments | 141 |
+| Customers | 78 |
+| Carriers | 13 |
+| Hubs | 25 |
+| Tracking fixture | 43 |
+
+The [data dictionary](Logistics/Data/batch/data_dictionary.csv) describes the source fields. The ADLS acceptance test added two synthetic events to the 43-event fixture.
+
+## Medallion architecture and analytics
+
+| Layer | Meridian output |
+| --- | --- |
+| Bronze | Raw Delta tables for shipments, customers, carriers, and hubs |
+| Silver | Curated and rejected shipment Delta tables with traceable validation rules |
+| Gold | Monthly delivery, carrier SLA, lane performance, and delay-reason KPIs in Delta and Iceberg |
+
+The shipment-grain analytics view joins customer, carrier, origin hub, and destination hub references. See the [star-style model](Architecture/README.md#shipment-analytics-model) and [KPI catalogue](Analytics/README.md#gold-kpi-tables).
+
+## Run the project
 
 ## Run the batch notebook
 
@@ -89,4 +142,10 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\validate-project.ps1`
 
 ## Hosted CI
 
-Both `producer-image` and `processing-images` passed on `main` for commit `1b7d12c0a56be37034cfbc24c6f123d5f7fbb217`. The workflow builds the images and checks the packaged batch reconciliation. [Verified Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44895379150) · [Latest runs on main](https://github.com/ShanmukhaAaryasree/project-meridian/actions/workflows/ci.yml?query=branch%3Amain)
+Both `producer-image` and `processing-images` passed on `main` for the archived baseline commit `7d5412c1401caf7d734ee1b9b8636d233864c4eb`. The workflow builds the images and checks the packaged batch reconciliation. [Verified Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44896883090) · [Latest runs on main](https://github.com/ShanmukhaAaryasree/project-meridian/actions/workflows/ci.yml?query=branch%3Amain)
+
+## Recorded outcomes
+
+- Batch reconciled **141 raw → 133 latest → 122 curated + 11 rejected**. The Delta merge test updated one curated row. [Batch log](meridian-batch-kubernetes.log) · [Merge evidence](evidence/meridian-delta-upsert-verification.log)
+- Four Gold KPI tables matched across Delta and Iceberg. Adding `delay_category` preserved **14 rows**. [KPI comparison](evidence/databricks-kpi-comparison.csv) · [Schema screenshot](evidence/databricks-schema-evolution-row-counts.png)
+- The ADLS-backed replacement recovered **44 records and 12 windows**, then processed one more event. [Recovery log](meridian-adls-recovery-verification.log) · [Kafka lag](evidence/meridian-kafka-lag.csv)
