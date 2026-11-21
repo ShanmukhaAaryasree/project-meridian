@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build the producer image
+      - name: Build the Kafka producer image
         run: docker build -f Development/Docker/meridian-producer.Dockerfile -t meridian-producer:ci .
       - name: Check the container user and replay dataset
         run: |
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build both processing images
+      - name: Build the Spark batch and streaming images
         run: |
           docker build -f Development/Docker/meridian-batch.Dockerfile -t meridian-batch:ci .
           docker build -f Development/Docker/meridian-stream.Dockerfile -t meridian-stream:ci .
