@@ -1,5 +1,21 @@
 // Databricks notebook source
+dbutils.widgets.text("input_volume", "/Volumes/aarya/default/application_files", "Input volume")
+dbutils.widgets.text("output_schema", "aarya.default", "Output catalog and schema")
+val inputVolume = dbutils.widgets.get("input_volume").trim.stripSuffix("/")
+val outputSchema = dbutils.widgets.get("output_schema").trim
+require(inputVolume.startsWith("/Volumes/"), "Input volume must be a Unity Catalog volume path.")
+require(outputSchema.matches("[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*"),
+  "Output schema must be in catalog.schema format.")
 println(s"Scala + Spark ready. Row count = ${spark.range(3).count()}")
+
+// COMMAND ----------
+
+val shipments = spark.read
+  .option("header", "true")
+  .csv(s"$inputVolume/shipments.csv")
+
+println(s"Raw shipment rows = ${shipments.count()}")
+display(shipments.limit(5))
 
 // COMMAND ----------
 
@@ -22,13 +38,16 @@ display(
 
 import org.apache.spark.sql.expressions.Window
 
+val shipmentIdPattern = "^SHP2026[0-9]{6}$"
+val validShipmentId = coalesce(trim(col("shipment_id")).rlike(shipmentIdPattern), lit(false))
 val latestFirst = Window
-  .partitionBy("shipment_id")
-  .orderBy(to_timestamp(col("last_updated"), "yyyy-MM-dd HH:mm:ss").desc_nulls_last)
+  .partitionBy(trim(col("shipment_id")))
+  .orderBy(expr("try_cast(last_updated as timestamp)").desc_nulls_last,
+    to_json(struct(shipments.columns.map(col): _*)).asc)
 
 val latestShipments = shipments
   .withColumn("version_rank", row_number().over(latestFirst))
-  .filter(col("version_rank") === 1)
+  .filter(!validShipmentId || col("version_rank") === 1)
   .drop("version_rank")
 
 val rawCount = shipments.count()
@@ -54,7 +73,8 @@ val checkedShipments = latestShipments
     .otherwise(col("status")))
   .withColumn("rejection_reason", expr("""
     concat_ws('; ',
-      CASE WHEN coalesce(trim(shipment_id), '') = '' THEN 'Missing shipment ID' END,
+      CASE WHEN coalesce(trim(shipment_id), '') = '' THEN 'Missing shipment ID'
+        WHEN trim(shipment_id) NOT RLIKE '^SHP2026[0-9]{6}$' THEN 'Invalid shipment ID' END,
       CASE WHEN ship_dt IS NULL THEN 'Invalid ship date' END,
       CASE WHEN weight IS NULL OR weight <= 0 THEN 'Invalid weight' END,
       CASE WHEN charge IS NULL OR charge < 0 THEN 'Invalid freight charge' END,
@@ -69,15 +89,6 @@ display(
     .select("shipment_id", "ship_date", "weight_kg", "freight_charge_inr",
       "shipment_status", "rejection_reason")
 )
-
-// COMMAND ----------
-
-val shipments = spark.read
-  .option("header", "true")
-  .csv("/Volumes/aarya/default/application_files/shipments.csv")
-
-println(s"Raw shipment rows = ${shipments.count()}")
-display(shipments.limit(5))
 
 // COMMAND ----------
 
@@ -122,7 +133,7 @@ display(
 
 // COMMAND ----------
 
-val referenceFolder = "/Volumes/aarya/default/application_files"
+val referenceFolder = inputVolume
 
 val customersRaw = spark.read.option("header", "true")
   .csv(s"$referenceFolder/customers.csv")
@@ -138,16 +149,23 @@ println(s"Hubs = ${hubsRaw.count()}")
 // COMMAND ----------
 
 val customerOrder = Window
-  .partitionBy("customer_id")
-  .orderBy(expr("try_cast(signup_date as date)").asc_nulls_last)
+  .partitionBy(trim(col("customer_id")))
+  .orderBy(expr("try_cast(signup_date as date)").asc_nulls_last,
+    to_json(struct(customersRaw.columns.map(col): _*)).asc)
 
 val customersUnique = customersRaw
   .withColumn("row_rank", row_number().over(customerOrder))
   .filter(col("row_rank") === 1)
   .drop("row_rank")
 
-val carriersUnique = carriersRaw.distinct()
-val hubsUnique = hubsRaw.distinct()
+def unambiguousReferences(raw: org.apache.spark.sql.DataFrame, id: String): org.apache.spark.sql.DataFrame = {
+  val distinctRows = raw.withColumn(id, trim(col(id))).distinct()
+  val unambiguousIds = distinctRows.groupBy(id).count().filter(col("count") === 1).select(id)
+  distinctRows.join(unambiguousIds, Seq(id), "left_semi")
+}
+
+val carriersUnique = unambiguousReferences(carriersRaw, "carrier_id")
+val hubsUnique = unambiguousReferences(hubsRaw, "hub_id")
 
 println(s"Customers after deduplication = ${customersUnique.count()}")
 println(s"Carriers after deduplication = ${carriersUnique.count()}")
@@ -155,7 +173,7 @@ println(s"Hubs after deduplication = ${hubsUnique.count()}")
 
 // COMMAND ----------
 
-val customerKeys = customersUnique.select(col("customer_id").as("matched_customer"))
+val customerKeys = customersUnique.select(trim(col("customer_id")).as("matched_customer"))
 val carrierKeys = carriersUnique.select(col("carrier_id").as("matched_carrier"))
 val originKeys = hubsUnique.select(col("hub_id").as("matched_origin"))
 val destinationKeys = hubsUnique.select(col("hub_id").as("matched_destination"))
@@ -169,9 +187,9 @@ val shipmentsWithReferences = validatedShipments
     concat_ws('; ',
       nullif(rejection_reason, ''),
       CASE WHEN matched_customer IS NULL THEN 'Missing or unknown customer ID' END,
-      CASE WHEN matched_carrier IS NULL THEN 'Missing or unknown carrier ID' END,
-      CASE WHEN matched_origin IS NULL THEN 'Missing or unknown origin hub ID' END,
-      CASE WHEN matched_destination IS NULL THEN 'Missing or unknown destination hub ID' END
+      CASE WHEN matched_carrier IS NULL THEN 'Missing, unknown or conflicting carrier ID' END,
+      CASE WHEN matched_origin IS NULL THEN 'Missing, unknown or conflicting origin hub ID' END,
+      CASE WHEN matched_destination IS NULL THEN 'Missing, unknown or conflicting destination hub ID' END
     )
   """))
   .drop("matched_customer", "matched_carrier", "matched_origin", "matched_destination")
@@ -181,7 +199,7 @@ println(s"After reference checks = ${shipmentsWithReferences.count()}")
 
 display(
   shipmentsWithReferences
-    .filter(col("rejection_reason").contains("Missing or unknown"))
+    .filter(col("rejection_reason").contains("Missing"))
     .select("shipment_id", "customer_id", "carrier_id",
       "origin_hub_id", "destination_hub_id", "rejection_reason")
 )
@@ -197,6 +215,7 @@ display(Seq(
 
 val curatedShipments = shipmentsWithReferences
   .filter(col("rejection_reason") === "")
+  .withColumn("shipment_id", trim(col("shipment_id")))
   .drop("rejection_reason")
 
 val rejectedShipments = shipmentsWithReferences
@@ -214,12 +233,26 @@ display(Seq(
 // COMMAND ----------
 
 // DBTITLE 1,Write curated and rejected shipments
-val outputSchema = "aarya.default"
 
 val curatedTable = s"$outputSchema.meridian_shipments_curated"
 val rejectedTable = s"$outputSchema.meridian_shipments_rejected"
 
-curatedShipments.write.format("delta").mode("overwrite").saveAsTable(curatedTable)
+if (spark.catalog.tableExists(curatedTable)) {
+  curatedShipments.createOrReplaceTempView("meridian_curated_run")
+  val changed = curatedShipments.columns
+    .map(name => s"NOT (target.`$name` <=> source.`$name`)")
+    .mkString(" OR ")
+  spark.sql(s"""
+    MERGE INTO $curatedTable AS target
+    USING meridian_curated_run AS source
+    ON trim(target.shipment_id) = source.shipment_id
+    WHEN MATCHED AND ($changed) THEN UPDATE SET *
+    WHEN NOT MATCHED THEN INSERT *
+    WHEN NOT MATCHED BY SOURCE THEN DELETE
+  """)
+} else {
+  curatedShipments.write.format("delta").saveAsTable(curatedTable)
+}
 rejectedShipments.write.format("delta").mode("overwrite").saveAsTable(rejectedTable)
 
 // COMMAND ----------
@@ -349,6 +382,7 @@ val lanePerformanceKpi = spark.sql("""
     destination_hub_id,
     destination_hub_name,
     COUNT(*) AS shipment_volume,
+    ROUND(SUM(weight), 3) AS total_weight_kg,
     ROUND(SUM(charge), 2) AS freight_revenue_inr,
     ROUND(SUM(charge) / NULLIF(SUM(weight), 0), 2) AS revenue_per_kg_inr,
     COUNT_IF(status = 'DELIVERED') AS delivered_shipments,
@@ -432,9 +466,12 @@ val icebergChecks = deltaKpiTables.map { deltaTable =>
 }
 
 display(icebergChecks.toDF("iceberg_table", "row_count", "rows_match_delta"))
+require(icebergChecks.forall { case (_, count, rowsMatch) => count > 0 && rowsMatch },
+  "All four Iceberg KPI tables must contain the same rows as their Delta counterparts.")
 
 // COMMAND ----------
 
+// DBTITLE 1,Verify Iceberg schema evolution
 val icebergDelayTable = s"${delayKpiTable}_iceberg"
 val rowsBeforeEvolution = spark.table(icebergDelayTable).count()
 
@@ -447,17 +484,14 @@ if (!spark.table(icebergDelayTable).columns.contains("delay_category")) {
 
 val evolvedDelayData = spark.table(icebergDelayTable)
 val rowsAfterEvolution = evolvedDelayData.count()
+require(rowsBeforeEvolution == rowsAfterEvolution &&
+  evolvedDelayData.columns.contains("delay_category"),
+  "Adding delay_category must preserve the existing Iceberg rows.")
 
 display(Seq(
-  ("Rows before adding column", rowsBeforeEvolution),
-  ("Rows after adding column", rowsAfterEvolution)
-).toDF("check", "row_count"))
-
-display(
-  evolvedDelayData
-    .select("delay_reason", "late_shipments", "delay_category")
-    .limit(10)
-)
+  ("Rows before adding column", rowsBeforeEvolution, ""),
+  ("Rows after adding column", rowsAfterEvolution, "delay_category")
+).toDF("check", "row_count", "added_column"))
 
 // COMMAND ----------
 
@@ -509,7 +543,7 @@ import org.apache.spark.sql.functions._
 
 // Read the Kafka export as raw text so each line keeps its original bytes
 // (BOM, trailing \r) and its position in the replay order.
-val kafkaExportPath = "/Volumes/aarya/default/application_files/meridian-kafka-events.jsonl"
+val kafkaExportPath = s"$inputVolume/meridian-kafka-events.jsonl"
 
 val kafkaExport = spark.read
   .option("wholetext", "true")
@@ -522,57 +556,6 @@ println(s"Kafka events loaded = ${kafkaExport.count()}")
 // COMMAND ----------
 
 // DBTITLE 1,Validate and classify tracking audit events
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.expressions.Window
-
-val auditEventSchema =
-  "event_id STRING, shipment_id STRING, hub_id STRING, event_type STRING, " +
-  "event_time TIMESTAMP, ingest_time TIMESTAMP, vehicle_id STRING, delay_minutes INT"
-
-val parsedAuditEvents = kafkaExport
-  .withColumn("event_json", regexp_replace(col("event_json"), "^\uFEFF", ""))
-  .withColumn("event", from_json(col("event_json"), auditEventSchema, Map.empty[String, String]))
-  .selectExpr("replay_position", "event_json", "event.*")
-
-val validatedAuditEvents = parsedAuditEvents.withColumn("rejection_reason", expr("""
-  concat_ws('; ',
-    CASE WHEN event_id IS NULL OR event_id NOT RLIKE '^EVT[0-9]{7}$'
-      THEN 'Invalid event ID' END,
-    CASE WHEN shipment_id IS NULL OR shipment_id NOT RLIKE '^SHP2026[0-9]{6}$'
-      THEN 'Missing or invalid shipment ID' END,
-    CASE WHEN hub_id IS NULL OR hub_id NOT RLIKE '^HUB[0-9]{2}$'
-      THEN 'Invalid hub ID' END,
-    CASE WHEN event_type IS NULL OR event_type NOT IN (
-      'PICKED_UP', 'DEPARTED_HUB', 'ARRIVED_AT_HUB', 'ROUTE_CHECKPOINT',
-      'OUT_FOR_DELIVERY', 'DELIVERED', 'DELAYED', 'EXCEPTION'
-    ) THEN 'Invalid event type' END,
-    CASE WHEN event_time IS NULL OR ingest_time IS NULL
-      THEN 'Missing or invalid timestamp' END,
-    CASE WHEN delay_minutes < 0 THEN 'Negative delay' END
-  )
-"""))
-
-val auditArrivalOrder = Window
-  .partitionBy("event_id", "rejection_reason")
-  .orderBy("replay_position")
-
-val trackingAudit = validatedAuditEvents
-  .withColumn("arrival_rank", row_number().over(auditArrivalOrder))
-  .withColumn("disposition", expr("""
-    CASE
-      WHEN rejection_reason <> '' THEN 'REJECTED'
-      WHEN arrival_rank > 1 THEN 'DUPLICATE'
-      WHEN ingest_time < event_time THEN 'CLOCK_SKEW'
-      WHEN ingest_time > event_time + INTERVAL 5 MINUTES THEN 'LATE'
-      ELSE 'ACCEPTED'
-    END
-  """))
-
-display(trackingAudit.groupBy("disposition").count().orderBy("disposition"))
-
-// COMMAND ----------
-
-// DBTITLE 1,Validate and classify tracking audit events (copy)
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.expressions.Window
 
@@ -637,8 +620,8 @@ val auditOutputs = Seq(
 )
 
 val savedAuditCounts = auditOutputs.map { case (name, condition) =>
-  val tableName = s"aarya.default.$name"
-  trackingAudit.filter(condition).write.format("delta").saveAsTable(tableName)
+  val tableName = s"$outputSchema.$name"
+  trackingAudit.filter(condition).write.format("delta").mode("overwrite").saveAsTable(tableName)
   (tableName, spark.table(tableName).count())
 }
 
