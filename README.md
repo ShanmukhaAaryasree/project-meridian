@@ -173,7 +173,7 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Testing/validate-proj
 
 ## Hosted CI
 
-Both `producer-image` and `processing-images` passed on `main` for the archived baseline commit `7d5412c1401caf7d734ee1b9b8636d233864c4eb`. The workflow builds the images and checks the packaged batch reconciliation. [Verified Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/44896883090) · [Latest runs on main](https://github.com/ShanmukhaAaryasree/project-meridian/actions/workflows/ci.yml?query=branch%3Amain)
+Both `producer-image` and `processing-images` passed on the merged `main` commit `8ea5f356227f3925e4c6b878212a143fb66a7c30`. The processing job built the batch and stream images, validated the real-time Compose configuration, and passed batch reconciliation. CI does not run the live Kafka-to-Spark event demonstration or verify an end-to-end latency target. [Successful Meridian CI run](https://github.com/ShanmukhaAaryasree/project-meridian/actions/runs/45182186442) · [Latest runs on main](https://github.com/ShanmukhaAaryasree/project-meridian/actions/workflows/ci.yml?query=branch%3Amain)
 
 ## Recorded outcomes
 
