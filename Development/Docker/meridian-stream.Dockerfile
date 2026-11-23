@@ -10,5 +10,7 @@ RUN printf '%s\n' 'try { Seq("org.apache.kafka.common.serialization.ByteArraySer
 FROM apache/spark:3.5.3-java17-scala
 COPY --from=dependencies /tmp/meridian-ivy/jars/ /opt/meridian/jars/
 COPY ["Data Ingestion/Streaming/meridian-stream.scala", "Data Ingestion/Streaming/meridian-stream.sh", "/opt/meridian/"]
+USER root
+RUN mkdir -p /meridian && chown -R 185:185 /meridian
 USER 185:185
 ENTRYPOINT ["/bin/bash", "/opt/meridian/meridian-stream.sh"]

@@ -9,6 +9,8 @@
 | [Producer rollout](../Testing/evidence/kubernetes-producer-rollout.log) | Deployment update, rollback, and readiness |
 | [Fresh rerun attempt](../Testing/evidence/meridian-final-demo-attempt.log) | Local Docker Desktop timeout before the ADLS stage |
 
+The files above are archived evidence from earlier executions. The local continuous Compose demo writes current consumer output to `docker compose -f Development/Docker/compose.realtime.yaml logs -f stream`; it does not create or overwrite these archived logs.
+
 The [lag utility](../Development/Scripts/measure-meridian-kafka-lag.ps1) compares committed Spark offsets with broker end offsets. See the [demo guide](../docs/demo-guide.md#inspect-a-failed-deployment) for inspecting Kubernetes logs and events.
 
 For evaluation, start with shipment reconciliation, then show the replacement pod's startup state and the final Kafka lag. The 43-event PVC replay and the 45-event ADLS audit come from separate runs.
