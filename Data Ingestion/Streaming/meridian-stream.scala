@@ -9,7 +9,9 @@ try {
   val warehouse = sys.env.getOrElse("MERIDIAN_WAREHOUSE", "file:///meridian/warehouse")
   val auditPath = s"${warehouse.stripSuffix("/")}/event_audit"
   val continuous = sys.env.get("MERIDIAN_STREAM_MODE").contains("continuous")
-  val trigger = if (continuous) Trigger.ProcessingTime("10 seconds") else Trigger.AvailableNow()
+  val triggerInterval = sys.env.getOrElse("MERIDIAN_TRIGGER_INTERVAL", "2 seconds")
+  val maxOffsetsPerTrigger = sys.env.getOrElse("MERIDIAN_MAX_OFFSETS_PER_TRIGGER", "12")
+  val trigger = if (continuous) Trigger.ProcessingTime(triggerInterval) else Trigger.AvailableNow()
 
   sys.env.get("MERIDIAN_ADLS_HOST").foreach { host =>
     val config = spark.sparkContext.hadoopConfiguration
@@ -61,7 +63,7 @@ try {
     .option("kafka.bootstrap.servers", broker)
     .option("subscribe", topic)
     .option("startingOffsets", "earliest")
-    .option("maxOffsetsPerTrigger", "12")
+    .option("maxOffsetsPerTrigger", maxOffsetsPerTrigger)
     .load()
     .selectExpr("partition AS kafka_partition", "offset AS kafka_offset",
       "CAST(value AS STRING) AS event_json")
@@ -132,11 +134,10 @@ try {
       """)
       println(s"Finished streaming batch $batchId")
       if (continuous) {
-        val savedCount = batchSpark.table("meridian.tracking.replay_records").count()
-        println(s"Saved Kafka records = $savedCount")
         if (usesAdls) println(s"ADLS window state: ${reportWindowState(batchSpark)}")
+      } else {
+        batchSpark.table("meridian_event_audit").groupBy("disposition").count().show(false)
       }
-      batchSpark.table("meridian_event_audit").groupBy("disposition").count().show(false)
     }
     .start()
 

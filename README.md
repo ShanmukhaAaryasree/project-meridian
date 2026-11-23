@@ -4,7 +4,7 @@
 
 ## Project overview
 
-Meridian cleans historical shipment data, publishes delivery KPIs, and replays tracking events through Kafka and Spark. The capstone brief describes 8,768 shipment records. The trainer supplied a mini pack with 141 shipment rows, including eight re-sent versions. The reported results cover that mini pack. Full-dataset and production-volume validation require a separate run.
+Meridian cleans historical shipment data, publishes delivery KPIs, replays tracking fixtures, and supports continuous Kafka-to-Spark Structured Streaming for new shipment events. The capstone brief describes 8,768 shipment records. The trainer supplied a mini pack with 141 shipment rows, including eight re-sent versions. The reported batch results cover that mini pack. Full-dataset and production-volume validation require a separate run.
 
 Start with the [architecture](#architecture), [demo guide](docs/demo-guide.md), or [requirements and evidence matrix](docs/requirements-compliance.md).
 
@@ -75,6 +75,35 @@ The shipment-grain analytics view joins customer, carrier, origin hub, and desti
 
 Run the Docker and PowerShell commands from the repository root.
 
+## Run real-time streaming locally
+
+The Docker Compose demo starts a local Kafka broker and a continuous Spark Structured Streaming consumer. From the repository root, run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Development\Scripts\start-meridian-realtime.ps1
+docker compose -f Development/Docker/compose.realtime.yaml ps
+docker compose -f Development/Docker/compose.realtime.yaml logs -f stream
+```
+
+Publish a new tracking event from another PowerShell window:
+
+```powershell
+$eventTime = [DateTime]::UtcNow
+$event = @{
+  event_id = 'EVT9999002'
+  shipment_id = 'SHP2026008426'
+  hub_id = 'HUB06'
+  event_type = 'ROUTE_CHECKPOINT'
+  event_time = $eventTime.ToString('yyyy-MM-ddTHH:mm:ssZ')
+  ingest_time = $eventTime.AddSeconds(1).ToString('yyyy-MM-ddTHH:mm:ssZ')
+  vehicle_id = 'VEH-1054'
+  delay_minutes = 0
+} | ConvertTo-Json -Compress
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Development\Scripts\publish-meridian-event.ps1 -EventJson $event
+```
+
+The continuous consumer uses a two-second processing-time trigger by default. Set `MERIDIAN_TRIGGER_INTERVAL` to change the trigger interval and `MERIDIAN_MAX_OFFSETS_PER_TRIGGER` to cap records read in a micro-batch. The trigger interval is not an end-to-end latency guarantee; actual delivery depends on how long each batch takes to process and the resources available. The Kafka topic, checkpoint and warehouse are separate from the finite replay. `docker compose -f Development/Docker/compose.realtime.yaml down` stops the containers and preserves their named volumes.
+
 ## Run the batch notebook
 
 1. Open a Scala notebook on Azure Databricks classic compute. For the managed Iceberg steps, use Databricks Runtime 16.4 LTS or above and an output schema with predictive optimization enabled.
@@ -114,9 +143,9 @@ Apply `kubectl --context docker-desktop apply -f Development/Kubernetes/meridian
 
 The initial local replay and its replacement both retained 43 raw Kafka records. The replacement processed zero new records and reproduced the same 12 windows. The separate ADLS run started with the same 43-event fixture plus one deliberately late event. It recovered 44 raw records after pod replacement, then processed one additional accepted event. The final 45 raw records comprise 33 accepted, 7 duplicate, 4 rejected, and 1 late. See the [reproduction steps](docs/demo-guide.md#reproduce-the-adls-event-counts) and [ADLS verification log](Logging/meridian-adls-recovery-verification.log).
 
-## Run the continuous consumer
+## Run the continuous consumer on Kubernetes
 
-With the Kubernetes Kafka broker and PVC running, use `powershell -NoProfile -ExecutionPolicy Bypass -File .\Development/Scripts/start-meridian-live.ps1`. This creates a separate `shipment-tracking-live` topic and deploys a Spark consumer that checks for events every ten seconds. It uses a separate checkpoint and Iceberg warehouse so the finite replay remains reproducible. Publish keyed events to the live topic to see new micro-batches in `kubectl --context docker-desktop logs -f deployment/meridian-stream-live`.
+With the Kubernetes Kafka broker and PVC running, use `powershell -NoProfile -ExecutionPolicy Bypass -File .\Development/Scripts/start-meridian-live.ps1`. This creates a separate `shipment-tracking-live` topic and deploys a Spark consumer. It uses a two-second processing-time trigger by default; set `MERIDIAN_TRIGGER_INTERVAL` to change it. Batch execution time and available resources determine end-to-end latency. The consumer uses a separate checkpoint and Iceberg warehouse so the finite replay remains reproducible. Publish keyed events to the live topic to see new micro-batches in `kubectl --context docker-desktop logs -f deployment/meridian-stream-live`.
 
 To use ADLS Gen2, provision an authorized Entra service principal and put its tenant ID, app client ID, and client secret in the `meridian-adls-auth` Kubernetes Secret as `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`. Use `Development/Kubernetes/meridian-adls-probe.yaml` to verify a Spark pod can write and read the project storage folder. Then pass `-Adls` to `Development/Scripts/start-meridian-live.ps1`. That mode uses its own Kafka topic and writes its checkpoint, Iceberg tables, and Delta event audit under the ADLS `meridian/streaming` prefix. Use `-RunId <suffix>` to start an independent run with a separate deployment, topic, checkpoint and warehouse. Keep the topic and storage paths consistent across pod replacements.
 

@@ -18,7 +18,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Producer["Dockerized Kafka producer"] --> Broker["Kafka on local Kubernetes"]
+  Producer["Tracking event publisher"] --> Broker["Kafka on Docker Compose or Kubernetes"]
   Broker --> Spark["Spark Structured Streaming"]
   Spark --> Replay["Iceberg replay records"]
   Replay --> Audit["Delta disposition audit"]
@@ -26,7 +26,7 @@ flowchart LR
   Spark --> Checkpoint["Spark checkpoint"]
 ```
 
-The local replay uses a persistent volume. The ADLS acceptance run stores its checkpoint, Iceberg warehouse, and Delta audit in ADLS Gen2 while Kafka and Spark compute remain on local Kubernetes. See the [replay and recovery record](../Logging/meridian-adls-recovery-verification.log).
+The finite replay and continuous live consumer use separate topics, checkpoints, and warehouses. The local live demo runs Kafka and Spark with Docker Compose; Kubernetes supports the persistent-volume and ADLS-backed deployment paths. Continuous mode uses a two-second processing-time trigger by default, while actual end-to-end delay depends on micro-batch processing time. The ADLS acceptance run stores its checkpoint, Iceberg warehouse, and Delta audit in ADLS Gen2 while Kafka and Spark compute remain on local Kubernetes. See the [replay and recovery record](../Logging/meridian-adls-recovery-verification.log).
 
 ## Shipment analytics model
 

@@ -30,6 +30,8 @@ jobs:
         run: |
           docker build -f Development/Docker/meridian-batch.Dockerfile -t meridian-batch:ci .
           docker build -f Development/Docker/meridian-stream.Dockerfile -t meridian-stream:ci .
+      - name: Validate the local real-time Compose configuration
+        run: docker compose -f Development/Docker/compose.realtime.yaml config --quiet
       - name: Verify image dependencies and user
         run: |
           test "$(docker run --rm --entrypoint id meridian-batch:ci -u)" -ne 0
